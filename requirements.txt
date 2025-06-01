@@ -1,4 +1,4 @@
 streamlit
 python-docx
-pymupdf
-docx2txt
+scikit-learn
+PyMuPDF
