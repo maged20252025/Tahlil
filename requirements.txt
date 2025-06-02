@@ -1,4 +1,5 @@
 streamlit
 python-docx
 pymupdf
+scikit-learn
 docx2txt
