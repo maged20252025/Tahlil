@@ -112,7 +112,14 @@ if uploaded_files and search_button:
 
         st.markdown("---")
         st.header("⬇️ تحميل الملفات التي ظهرت فيها نتائج:")
-
+# أزرار الانتقال لأعلى وأسفل الصفحة
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("🔽 إلى الأسفل"):
+        st.markdown("<script>window.scrollTo(0, document.body.scrollHeight);</script>", unsafe_allow_html=True)
+with col2:
+    if st.button("🔼 إلى الأعلى"):
+        st.markdown("<script>window.scrollTo(0, 0);</script>", unsafe_allow_html=True)
         for name, content in matched_files.items():
             st.download_button(f"📄 تحميل الملف: {name}", data=content, file_name=name)
 
