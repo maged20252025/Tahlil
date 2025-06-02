@@ -70,9 +70,7 @@ if st.button("🔍 بدء البحث"):
         st.success(f"✅ تم العثور على {sum(r['matches'] for r in results)} نتيجة في {len(results)} ملف")
         for res in results:
             st.write(f"📄 **الملف:** {res['file_name']}")
-            st.markdown(f"🧠 **مقتطف:**
-
-{res['snippet']}")
+            st.markdown(f"🧠 **مقتطف:**\n\n{res['snippet']}")
             st.markdown("---")
 
         # 📦 تحميل النتائج في ملف مضغوط
