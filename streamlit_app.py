@@ -1,4 +1,3 @@
-
 import streamlit as st
 from docx import Document
 import fitz  # PyMuPDF
@@ -7,19 +6,18 @@ import zipfile
 import re
 
 st.set_page_config(page_title="البحث في أحكام المحكمة العليا", layout="wide")
-
-# إعادة إظهار مربع رفع الملفات بعد الحذف
-if st.session_state.get("hide_files"):
-    st.session_state.hide_files = False
-
-# مفتاح ديناميكي لتحديث رفع الملفات
-if 'upload_key' not in st.session_state:
-    st.session_state.upload_key = 'initial'
-
-# إعادة إظهار مربع رفع الملفات بعد الحذف
-if st.session_state.get("hide_files"):
-    st.session_state.hide_files = False
 st.title("📚 أداة البحث في أحكام المحكمة العليا (Word + PDF)")
+
+# إعادة ضبط حالة رفع الملفات إذا لزم
+if "upload_key" not in st.session_state:
+    st.session_state.upload_key = "initial"
+
+# زر حذف الملفات: يقوم بتغيير المفتاح وإعادة تشغيل التطبيق
+if st.button("🗑️ حذف جميع الملفات"):
+    st.session_state.upload_key = str(io.BytesIO())  # مفتاح جديد كل مرة
+    st.session_state.keywords = ""
+    st.session_state.search_triggered = False
+    st.rerun()
 
 # تنظيف النص العربي لتوحيد المقارنة
 def normalize_text(text):
@@ -29,47 +27,27 @@ def normalize_text(text):
     text = text.replace("ـ", "")
     return text.strip()
 
-# تظليل تكرار واحد فقط باستخدام مواضع start و end
-def highlight_exact_hit(text, keyword, match_index):
-    pattern = re.compile(re.escape(keyword), re.IGNORECASE)
-    matches = list(pattern.finditer(text))
-    if match_index < len(matches):
-        match = matches[match_index]
-        start, end = match.start(), match.end()
-        return (
-            text[:start]
-            + f"<mark style='background-color: #fff176'>{text[start:end]}</mark>"
-            + text[end:]
-        )
-    return text
+# تظليل تطابق
+def highlight(text, keyword):
+    return re.sub(f"({re.escape(keyword)})", r"<mark style='background-color: #fff176'>\1</mark>", text, flags=re.IGNORECASE)
 
-# تهيئة حالة الملفات
-if 'hide_files' not in st.session_state:
-    st.session_state.hide_files = False
+# رفع الملفات بمفتاح متغير
+uploaded_files = st.file_uploader("📤 ارفع ملفات Word أو PDF", type=["docx", "pdf"], accept_multiple_files=True, key=st.session_state.upload_key)
 
-uploaded_files = None if st.session_state.hide_files else st.file_uploader(
-    
-    "📤 ارفع ملفات Word أو PDF", type=["docx", "pdf"], accept_multiple_files=True, key=st.session_state.upload_key
-)
-
-if uploaded_files:
-    if st.button("🗑️ حذف جميع الملفات"):
-    st.session_state.upload_key = str(io.BytesIO())  # مفتاح جديد لتحديث uploader
-    st.session_state.hide_files = True
-    st.session_state.keywords = ""
-    st.session_state.search_triggered = False
-    st.rerun()
-
+# مربع الكلمات المفتاحية
 keywords = st.text_area("✍️ الكلمات المفتاحية (افصل كل كلمة بفاصلة)", key="keywords")
-selected_file_name = None
 
+# اختيار الملف المحدد
+selected_file_name = None
 if uploaded_files:
     filenames = [f.name for f in uploaded_files]
     selected_file_name = st.selectbox("📂 اختر ملفًا للبحث داخله أو اختر 'الكل'", ["الكل"] + filenames)
 
+# زر البحث
 if st.button("🔍 بدء البحث"):
     st.session_state.search_triggered = True
 
+# بدء المعالجة
 if uploaded_files and st.session_state.get("search_triggered"):
     raw_keywords = [k.strip() for k in keywords.split(",") if k.strip()]
     keyword_list = [normalize_text(k) for k in raw_keywords]
@@ -97,26 +75,12 @@ if uploaded_files and st.session_state.get("search_triggered"):
                 paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
                 text_blocks.extend(paragraphs)
 
-        for paragraph_text in text_blocks:
-            norm_paragraph = normalize_text(paragraph_text)
-
+        for paragraph in text_blocks:
+            norm_paragraph = normalize_text(paragraph)
             for raw_kw, norm_kw in zip(raw_keywords, keyword_list):
-                pattern = re.compile(rf"\b{re.escape(norm_kw)}\b", re.IGNORECASE)
-                match_positions = list(pattern.finditer(norm_paragraph))
-
-                visible_pattern = re.compile(re.escape(raw_kw), re.IGNORECASE)
-                visible_matches = list(visible_pattern.finditer(paragraph_text))
-
-                for idx, match in enumerate(visible_matches):
-                    highlighted = (
-                        paragraph_text[:match.start()]
-                        + f"<mark style='background-color: #fff176'>{paragraph_text[match.start():match.end()]}</mark>"
-                        + paragraph_text[match.end():]
-                    )
-                    results.append({
-                        "الملف": file_name,
-                        "نص": highlighted
-                    })
+                if re.search(rf"\b{norm_kw}\b", norm_paragraph, re.IGNORECASE):
+                    highlighted = highlight(paragraph, raw_kw)
+                    results.append({"الملف": file_name, "نص": highlighted})
                     matched_files[file_name] = file_bytes
 
     if results:
